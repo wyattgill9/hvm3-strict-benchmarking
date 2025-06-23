@@ -11,20 +11,18 @@ typedef uint8_t Tag;
 #define USE_HVM_LAYOUT 0
 
 #if USE_HVM_LAYOUT
-  // [Loc:54 | Lab:8 | Tag:4]
   #define TAG_BITS 4
   #define LAB_BITS 8
   #define LOC_BITS 54
 #else
-  // [Loc:48 | Lab:8 | Tag:8]
   #define TAG_BITS 8
   #define LAB_BITS 8
   #define LOC_BITS 48
 #endif
 
-#define TAG_MASK ((1ULL << TAG_BITS) - 1)   // 0xFF
-#define LAB_MASK ((1ULL << LAB_BITS) - 1)   // 0xFF
-#define LOC_MASK ((1ULL << LOC_BITS) - 1)   // 0xFFFFFFFFFFFF
+#define TAG_MASK ((1ULL << TAG_BITS) - 1)
+#define LAB_MASK ((1ULL << LAB_BITS) - 1)
+#define LOC_MASK ((1ULL << LOC_BITS) - 1)
 
 Term term_new(Tag tag, Lab lab, Loc loc) {
     return ((Term)loc << (LAB_BITS + TAG_BITS)) |
@@ -54,10 +52,12 @@ double bench_diff_sec(struct timespec start, struct timespec end) {
            (end.tv_nsec - start.tv_nsec) / 1e9;
 }
 
+void sink(Term v) { __asm__ volatile("" : : "r"(v)); }
+
 int main() {
     const size_t ITER = 10000000000ULL;
 
-    Term acc = 0;
+    volatile Term acc = 0;
     struct timespec start, end;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
@@ -65,7 +65,9 @@ int main() {
         acc ^= term_new(i % 256, i % 256, i);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("term_new:           %.6f sec\n", bench_diff_sec(start, end));
+    printf("term_new:           %.6f sec (acc=%llu)\n", bench_diff_sec(start, end), (unsigned long long)acc);
+
+    sink(acc);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (size_t i = 0; i < ITER; ++i) {
@@ -73,7 +75,9 @@ int main() {
         acc ^= term_tag(t);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("term_tag:           %.6f sec\n", bench_diff_sec(start, end));
+    printf("term_tag:           %.6f sec (acc=%llu)\n", bench_diff_sec(start, end), (unsigned long long)acc);
+
+    sink(acc);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (size_t i = 0; i < ITER; ++i) {
@@ -81,7 +85,9 @@ int main() {
         acc ^= term_lab(t);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("term_lab:           %.6f sec\n", bench_diff_sec(start, end));
+    printf("term_lab:           %.6f sec (acc=%llu)\n", bench_diff_sec(start, end), (unsigned long long)acc);
+
+    sink(acc);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (size_t i = 0; i < ITER; ++i) {
@@ -89,10 +95,9 @@ int main() {
         acc ^= term_loc(t);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("term_loc:           %.6f sec\n", bench_diff_sec(start, end));
+    printf("term_loc:           %.6f sec (acc=%llu)\n", bench_diff_sec(start, end), (unsigned long long)acc);
 
-    printf("acc: %llu\n", (unsigned long long)acc);
+    sink(acc);
 
     return 0;
 }
-
